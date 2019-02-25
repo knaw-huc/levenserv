@@ -71,11 +71,11 @@ func main() {
 
 	t := time.Duration(*timeout) * time.Second
 	idx := nnIndex{
-		debug:     *debug,
-		metric:    *metric,
-		normName:  strings.ToLower(*normalFlag),
-		normalize: normalize,
-		timeout:   t,
+		debug:      *debug,
+		metricName: *metric,
+		normName:   strings.ToLower(*normalFlag),
+		normalize:  normalize,
+		timeout:    t,
 	}
 	h, err := idx.init(strs)
 	if err != nil {

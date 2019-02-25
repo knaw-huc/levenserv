@@ -17,27 +17,28 @@ import (
 )
 
 type nnIndex struct {
-	debug     bool
-	metric    string
-	normName  string
-	normalize func(string) string
-	timeout   time.Duration
+	debug      bool
+	metricName string
+	metric     vp.Metric
+	normName   string
+	normalize  func(string) string
+	timeout    time.Duration
 
 	*vp.Tree
 }
 
-func (i *nnIndex) init(strs <-chan string) (http.Handler, error) {
-	m, err := metricByName(i.metric)
+func (i *nnIndex) init(strs <-chan string) (h http.Handler, err error) {
+	i.metric, err = metricByName(i.metricName)
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	if i.debug {
 		log.Print("building index")
 	}
-	i.Tree, err = vp.New(context.Background(), m, strs)
+	i.Tree, err = vp.New(context.Background(), i.metric, strs)
 	if err != nil {
-		return nil, err
+		return
 	}
 	if i.debug {
 		log.Printf("done, %d words", i.Tree.Len())
@@ -48,6 +49,7 @@ func (i *nnIndex) init(strs <-chan string) (http.Handler, error) {
 	}
 
 	r := gin.Default()
+	r.POST("/distance", i.distance)
 	r.GET("/info", i.info)
 	r.GET("/keys", i.allKeys)
 	r.POST("/knn", i.knn)
@@ -94,10 +96,32 @@ func (i *nnIndex) allKeys(c *gin.Context) {
 	})
 }
 
+// distance computes the distance between a pair of input strings,
+// without considering the indexed strings.
+func (i *nnIndex) distance(c *gin.Context) {
+	var strs [2]string
+	err := c.BindJSON(&strs)
+	if err != nil {
+		badRequest(c, err)
+		return
+	}
+
+	if i.normalize != nil {
+		strs[0] = i.normalize(strs[0])
+		strs[1] = i.normalize(strs[1])
+	}
+
+	d := i.metric(strs[0], strs[1])
+	c.JSON(http.StatusOK, gin.H{
+		"metric":   i.metricName,
+		"distance": d,
+	})
+}
+
 // info sends some information about the index.
 func (i *nnIndex) info(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"metric": i.metric,
+		"metric": i.metricName,
 		"norm":   i.normName,
 		"size":   i.Tree.Len(),
 	})
