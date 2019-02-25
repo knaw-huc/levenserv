@@ -115,7 +115,7 @@ func (i *nnIndex) knn(c *gin.Context) {
 		err = fmt.Errorf("negative maximum distance %f", params.MaxDist)
 	}
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		badRequest(c, err)
 		return
 	}
 
@@ -123,7 +123,7 @@ func (i *nnIndex) knn(c *gin.Context) {
 	if params.Regexp != "" {
 		re, err := regexp.Compile(params.Regexp)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			badRequest(c, err)
 			return
 		}
 		pred = re.MatchString
@@ -140,11 +140,17 @@ func (i *nnIndex) knn(c *gin.Context) {
 		if err == context.DeadlineExceeded {
 			status = http.StatusRequestTimeout
 		}
-		c.JSON(status, gin.H{"error": err.Error()})
+		c.AbortWithStatusJSON(status, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, r)
+}
+
+func badRequest(c *gin.Context, err error) {
+	c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+		"error": err.Error(),
+	})
 }
 
 type knnParams struct {
