@@ -1,12 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"sort"
-	"strings"
 	"testing"
 	"time"
 )
@@ -55,32 +55,51 @@ func TestInfo(t *testing.T) {
 	}
 }
 
-func TestKnnLevenshtein(t *testing.T) {
-	h := makeHandler("levenshtein")
+func TestKnnJaccard(t *testing.T) {
+	testKnn(t, "jaccard_trigrams", "brat", 2, []result{
+		{"distance": 0.75, "point": "bar"},
+		{"distance": 0.8461538461538461, "point": "baz"},
+	})
+}
 
-	req := httptest.NewRequest("POST", "/knn",
-		strings.NewReader(`{"k": 2, "query": "foobar"}`))
+func TestKnnLevenshtein(t *testing.T) {
+	testKnn(t, "levenshtein", "foobar", 2, []result{
+		{"point": "bar", "distance": 3.},
+		{"point": "foo", "distance": 3.},
+	})
+}
+
+// We could decode to []vp.Result, but we'll simulate a client that
+// doesn't share the vp package with us.
+type result map[string]interface{}
+
+func testKnn(t *testing.T, metric, query string, k int, expect []result) {
+	h := makeHandler(metric)
+
+	body, _ := json.Marshal(struct {
+		K     int    `json:"k"`
+		Query string `json:"query"`
+	}{k, query})
+
+	req := httptest.NewRequest("POST", "/knn", bytes.NewReader(body))
 
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	resp := w.Result()
 
-	// We could decode to []vp.Result, but we'll simulate a client that
-	// doesn't share the vp package with us.
-	var result []map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	var results []result
+	json.NewDecoder(resp.Body).Decode(&results)
+	sortResults(results)
 
-	// Whether "bar" comes before "foo" is indeterminate.
-	sort.Slice(result, func(i, j int) bool {
-		x, y := result[i], result[j]
-		return x["distance"].(float64) < y["distance"].(float64) ||
-			x["point"].(string) < y["point"].(string)
-	})
-
-	if !reflect.DeepEqual(result, []map[string]interface{}{
-		{"point": "bar", "distance": 3.},
-		{"point": "foo", "distance": 3.},
-	}) {
-		t.Errorf("unexpected result %v", result)
+	if !reflect.DeepEqual(results, expect) {
+		t.Errorf("unexpected result:\n%vwanted:\n%v", results, expect)
 	}
+}
+
+// Sort results by distance first, point second.
+func sortResults(r []result) {
+	sort.Slice(r, func(i, j int) bool {
+		return r[i]["distance"].(float64) < r[j]["distance"].(float64) ||
+			r[i]["point"].(string) < r[j]["point"].(string)
+	})
 }

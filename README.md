@@ -46,7 +46,8 @@ Usage
 The main API endpoint is ``/knn``, which performs a k-nearest neighbor search.
 It takes a JSON object with fields ``query`` (string) and ``k`` (integer) and
 returns the k strings in Levenserv's index that are closest to the query
-string. "Closest" means having the smallest Levenshtein edit distance.
+string. By default, "closest" means having the smallest Levenshtein edit
+distance.
 
 The return value is a list of strings and distances:
 
@@ -79,3 +80,18 @@ or a maximum distance, or both:
     {"distance":1,"point":"fold"}
     {"distance":1,"point":"ford"}
     {"distance":1,"point":"fool"}
+
+Aside from Levenshtein distance, Levenserv supports the Jaccard distance on
+the sets of trigrams extracted from a pair of strings. Start Levenserv with
+
+    levenserv -metric jaccard_trigrams
+
+to get this distance. Its value is always between zero and one:
+
+    $ curl -XPOST http://localhost:8080/knn -d '{"k": 5, "query": "hello"}' |
+        jq -c '.[]'
+    {"distance":0,"point":"hello"}
+    {"distance":0.21428571428571427,"point":"hellos"}
+    {"distance":0.2727272727272727,"point":"hell"}
+    {"distance":0.35294117647058826,"point":"Othello"}
+    {"distance":0.35294117647058826,"point":"hello's"}

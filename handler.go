@@ -13,6 +13,7 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/knaw-huc/levenserv/internal/levenshtein"
+	"github.com/knaw-huc/levenserv/internal/trigrams"
 	"github.com/knaw-huc/levenserv/internal/vp"
 )
 
@@ -54,6 +55,8 @@ func (i *nnIndex) init(strs <-chan string) (h http.Handler, err error) {
 
 func metricByName(name string) (m vp.Metric, err error) {
 	switch name {
+	case "jaccard_trigrams":
+		m = trigrams.JaccardDistanceStrings
 	case "levenshtein":
 		m = func(a, b string) float64 {
 			return float64(levenshtein.DistanceCodepoints(a, b))
