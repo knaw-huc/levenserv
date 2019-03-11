@@ -9,7 +9,7 @@ WORKDIR /go/src/github.com/knaw-huc/levenserv
 COPY . .
 
 RUN CGO_ENABLED=0 go test ./...
-RUN CGO_ENABLED=0 go install .
+RUN CGO_ENABLED=0 go install -ldflags="-s" .
 
 FROM scratch
 COPY LICENSE README.md ./
