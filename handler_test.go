@@ -11,12 +11,10 @@ import (
 	"time"
 )
 
-var srv *httptest.Server
-
-func init() {
+func makeHandler(metric string) http.Handler {
 	idx := nnIndex{
 		debug:      false,
-		metricName: "levenshtein",
+		metricName: metric,
 		normName:   "nfkd",
 		timeout:    2 * time.Second,
 	}
@@ -33,21 +31,23 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-
-	srv = httptest.NewServer(h)
+	return h
 }
 
 func TestInfo(t *testing.T) {
-	resp, err := http.Get(srv.URL + "/info")
-	if err != nil {
-		t.Fatal(err)
-	}
+	h := makeHandler("levenshtein_bytes")
+
+	req := httptest.NewRequest("GET", "/info", nil)
+
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	resp := w.Result()
 
 	var m map[string]interface{}
 	json.NewDecoder(resp.Body).Decode(&m)
 
 	if !reflect.DeepEqual(m, map[string]interface{}{
-		"metric": "levenshtein",
+		"metric": "levenshtein_bytes",
 		"norm":   "nfkd",
 		"size":   4.,
 	}) {
@@ -55,12 +55,15 @@ func TestInfo(t *testing.T) {
 	}
 }
 
-func TestKnn(t *testing.T) {
-	resp, err := http.Post(srv.URL+"/knn", "application/json",
+func TestKnnLevenshtein(t *testing.T) {
+	h := makeHandler("levenshtein")
+
+	req := httptest.NewRequest("POST", "/knn",
 		strings.NewReader(`{"k": 2, "query": "foobar"}`))
-	if err != nil {
-		t.Fatal(err)
-	}
+
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	resp := w.Result()
 
 	// We could decode to []vp.Result, but we'll simulate a client that
 	// doesn't share the vp package with us.
@@ -69,7 +72,9 @@ func TestKnn(t *testing.T) {
 
 	// Whether "bar" comes before "foo" is indeterminate.
 	sort.Slice(result, func(i, j int) bool {
-		return result[i]["point"].(string) < result[j]["point"].(string)
+		x, y := result[i], result[j]
+		return x["distance"].(float64) < y["distance"].(float64) ||
+			x["point"].(string) < y["point"].(string)
 	})
 
 	if !reflect.DeepEqual(result, []map[string]interface{}{
