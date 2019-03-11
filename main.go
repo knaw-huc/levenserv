@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -28,7 +27,7 @@ func main() {
 		timeout = flag.Int("timeout", 60, "request timeout in seconds")
 
 		err   error
-		input = ioutil.NopCloser(os.Stdin)
+		input = os.Stdin
 	)
 
 	flag.Parse()
@@ -60,6 +59,9 @@ func main() {
 		log.Fatalf("unknown input format %q", *format)
 	}
 
+	if *debug {
+		log.Printf("reading strings from %s", input.Name())
+	}
 	strs := make(chan string, 1)
 	go func() {
 		defer close(strs)
@@ -87,6 +89,9 @@ func main() {
 		Handler:      h,
 		ReadTimeout:  t,
 		WriteTimeout: t,
+	}
+	if *debug {
+		log.Printf("serving %s", *addr)
 	}
 	log.Fatal(srv.ListenAndServe())
 }

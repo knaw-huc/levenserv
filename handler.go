@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/julienschmidt/httprouter"
 	"github.com/knaw-huc/levenserv/internal/levenshtein"
 	"github.com/knaw-huc/levenserv/internal/vp"
 )
@@ -44,11 +44,7 @@ func (i *nnIndex) init(strs <-chan string) (h http.Handler, err error) {
 		log.Printf("done, %d words", i.Tree.Len())
 	}
 
-	if !i.debug {
-		gin.SetMode(gin.ReleaseMode)
-	}
-
-	r := gin.Default()
+	r := httprouter.New()
 	r.POST("/distance", i.distance)
 	r.GET("/info", i.info)
 	r.GET("/keys", i.allKeys)
@@ -74,13 +70,13 @@ func metricByName(name string) (m vp.Metric, err error) {
 
 // allKeys sends a JSON representation of the set of keys in i.Tree,
 // in some unspecified order.
-func (i *nnIndex) allKeys(c *gin.Context) {
-	_, err := c.Writer.Write([]byte("["))
+func (i *nnIndex) allKeys(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	_, err := w.Write([]byte("["))
 	if err != nil {
 		return
 	}
 
-	enc := json.NewEncoder(c.Writer)
+	enc := json.NewEncoder(w)
 	n := i.Tree.Len()
 
 	i.Tree.Do(func(key string) bool {
@@ -90,7 +86,7 @@ func (i *nnIndex) allKeys(c *gin.Context) {
 		}
 
 		if n--; n != 0 {
-			_, err = c.Writer.Write([]byte(","))
+			_, err = w.Write([]byte(","))
 		}
 		return err == nil
 	})
@@ -98,11 +94,11 @@ func (i *nnIndex) allKeys(c *gin.Context) {
 
 // distance computes the distance between a pair of input strings,
 // without considering the indexed strings.
-func (i *nnIndex) distance(c *gin.Context) {
+func (i *nnIndex) distance(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var strs [2]string
-	err := c.BindJSON(&strs)
+	err := json.NewDecoder(r.Body).Decode(&strs)
 	if err != nil {
-		badRequest(c, err)
+		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -112,24 +108,26 @@ func (i *nnIndex) distance(c *gin.Context) {
 	}
 
 	d := i.metric(strs[0], strs[1])
-	c.JSON(http.StatusOK, gin.H{
-		"metric":   i.metricName,
-		"distance": d,
+	json.NewEncoder(w).Encode(struct {
+		M string  `json:"metric"`
+		D float64 `json:"distance"`
+	}{
+		i.metricName, d,
 	})
 }
 
 // info sends some information about the index.
-func (i *nnIndex) info(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
+func (i *nnIndex) info(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	json.NewEncoder(w).Encode(map[string]interface{}{
 		"metric": i.metricName,
 		"norm":   i.normName,
 		"size":   i.Tree.Len(),
 	})
 }
 
-func (i *nnIndex) knn(c *gin.Context) {
+func (i *nnIndex) knn(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	params := defaultParams
-	err := c.BindJSON(&params)
+	err := json.NewDecoder(r.Body).Decode(&params)
 	switch {
 	case params.K < 0:
 		err = errors.New("missing or negative k")
@@ -139,7 +137,7 @@ func (i *nnIndex) knn(c *gin.Context) {
 		err = fmt.Errorf("negative maximum distance %f", params.MaxDist)
 	}
 	if err != nil {
-		badRequest(c, err)
+		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -147,33 +145,36 @@ func (i *nnIndex) knn(c *gin.Context) {
 	if params.Regexp != "" {
 		re, err := regexp.Compile(params.Regexp)
 		if err != nil {
-			badRequest(c, err)
+			writeError(w, http.StatusBadRequest, err)
 			return
 		}
 		pred = re.MatchString
 	}
 
-	ctx, _ := context.WithTimeout(c, i.timeout)
+	ctx, _ := context.WithTimeout(r.Context(), i.timeout)
 	q := params.Query
 	if i.normalize != nil {
 		q = i.normalize(q)
 	}
-	r, err := i.Tree.Search(ctx, q, params.K, params.MaxDist, pred)
+	result, err := i.Tree.Search(ctx, q, params.K, params.MaxDist, pred)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if err == context.DeadlineExceeded {
 			status = http.StatusRequestTimeout
 		}
-		c.AbortWithStatusJSON(status, gin.H{"error": err.Error()})
+		writeError(w, status, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, r)
+	json.NewEncoder(w).Encode(result)
 }
 
-func badRequest(c *gin.Context, err error) {
-	c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-		"error": err.Error(),
+func writeError(w http.ResponseWriter, status int, err error) {
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(struct {
+		Error string `json:"error"`
+	}{
+		err.Error(),
 	})
 }
 
