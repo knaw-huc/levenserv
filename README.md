@@ -22,7 +22,7 @@ look like other words. To get the ten words most similar to "foobar", do:
     curl -s http://localhost:8080/knn -d '{"query": "foobar", "k": 10}' |
         jq 'map(.point)'
 
-You will a result similar to
+You will get a result similar to
 
     [
       "forbear",
