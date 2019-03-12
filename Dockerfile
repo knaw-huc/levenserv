@@ -15,4 +15,4 @@ FROM scratch
 COPY LICENSE README.md ./
 COPY --from=build /go/bin/levenserv .
 
-ENTRYPOINT ["./levenserv"]
+ENTRYPOINT ["./levenserv", "-addr", ":8080"]

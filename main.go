@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -17,8 +18,9 @@ import (
 
 func main() {
 	var (
-		addr   = flag.String("addr", ":8080", "bind to this address")
-		debug  = flag.Bool("debug", false, "debugging mode")
+		addr = flag.String("addr", "localhost:",
+			"bind to this address (default: localhost with random port)")
+		debug  = flag.Bool("debug", false, "send debugging ouput to stderr")
 		format = flag.String("format", "lines", "input format: lines or json")
 		metric = flag.String("metric", "levenshtein",
 			"string distance metric to use")
@@ -90,10 +92,16 @@ func main() {
 		ReadTimeout:  t,
 		WriteTimeout: t,
 	}
-	if *debug {
-		log.Printf("serving %s", *addr)
+
+	ln, err := net.Listen("tcp", *addr)
+	if err != nil {
+		log.Fatal(err)
 	}
-	log.Fatal(srv.ListenAndServe())
+
+	fmt.Printf("http://%s\n", ln.Addr())
+	os.Stdout.Close()
+
+	log.Fatal(srv.Serve(ln))
 }
 
 // normalForm returns a Unicode normalization function.

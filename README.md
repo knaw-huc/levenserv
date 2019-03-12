@@ -95,3 +95,10 @@ to get this distance. Its value is always between zero and one:
     {"distance":0.2727272727272727,"point":"hell"}
     {"distance":0.35294117647058826,"point":"Othello"}
     {"distance":0.35294117647058826,"point":"hello's"}
+
+
+Usage from scripts, without Docker
+----------------------------------
+
+See example.sh for a shell script that starts and stops Levenserv, without
+using Docker. You need to go install the package first for this to work.
