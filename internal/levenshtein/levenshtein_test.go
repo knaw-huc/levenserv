@@ -15,6 +15,9 @@ func TestBasic(t *testing.T) {
 		{"kitten", "sitting", 3, 3},
 		{"na\xc3\xafve", "naive", 1, 2},
 		{"na\xc3\xafve", "nai\xcc\x88ve", 2, 3}, // NFC vs. NFD
+		{"égalité", "legalism", 4, 5},
+		{"€500", "500", 1, 3},
+		{"manqué", "mans", 3, 4},
 		{"prefixAAsuffix", "prefixBsuffix", 2, 2},
 	} {
 		if d := DistanceBytes(c.a, c.b); d != c.byteDist {

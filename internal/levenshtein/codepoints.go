@@ -33,21 +33,23 @@ func DistanceCodepoints(a, b string) int {
 
 	// Make sure a is the shorter string, since its length determines
 	// how much memory we use.
-	if len(a) > len(b) {
+	m := utf8.RuneCountInString(a)
+	n := utf8.RuneCountInString(b)
+	if m > n {
 		a, b = b, a
+		m, n = n, m
 	}
-	if len(a) == 0 {
-		return len(b)
+
+	if m == 0 {
+		return n
 	}
 
 	// Wagner-Fisher DP algorithm with only the current row in memory.
-	t := make([]int, len(a)+1)
+	t := make([]int, m+1)
 	for i := range t {
 		t[i] = i
 	}
 	aorig := a
-	m := utf8.RuneCountInString(a)
-	n := utf8.RuneCountInString(b)
 	for j := 1; j <= n; j++ {
 		r, skip := utf8.DecodeRuneInString(b)
 		b = b[skip:]
@@ -69,5 +71,5 @@ func DistanceCodepoints(a, b string) int {
 			prevDiag = old
 		}
 	}
-	return t[len(t)-1]
+	return t[m]
 }
