@@ -61,6 +61,10 @@ func metricByName(name string) (m vp.Metric, err error) {
 		m = func(a, b string) float64 {
 			return float64(levenshtein.DistanceCodepoints(a, b))
 		}
+	case "levenshtein_damerau":
+		m = func(a, b string) float64 {
+			return float64(levenshtein.DamerauDistanceCodepoints(a, b))
+		}
 	case "levenshtein_bytes":
 		m = func(a, b string) float64 {
 			return float64(levenshtein.DistanceBytes(a, b))

@@ -9,27 +9,8 @@ import "unicode/utf8"
 // so two invalid sequences are considered equal regardless of their content.
 // No Unicode normalization is performed on either a or b.
 func DistanceCodepoints(a, b string) int {
-	// Skip longest common prefix of a and b.
-	for len(a) > 0 && len(b) > 0 {
-		r, m := utf8.DecodeRuneInString(a)
-		s, n := utf8.DecodeRuneInString(b)
-		if r != s {
-			break
-		}
-		a = a[m:]
-		b = b[n:]
-	}
-
-	// Skip longest common suffix of a and b.
-	for len(a) > 0 && len(b) > 0 {
-		r, m := utf8.DecodeLastRuneInString(a)
-		s, n := utf8.DecodeLastRuneInString(b)
-		if r != s {
-			break
-		}
-		a = a[:len(a)-m]
-		b = b[:len(b)-n]
-	}
+	a, b = skipPrefixCodepoints(a, b)
+	a, b = skipSuffixCodepoints(a, b)
 
 	// Make sure a is the shorter string, since its length determines
 	// how much memory we use.

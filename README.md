@@ -81,6 +81,10 @@ or a maximum distance, or both:
     {"distance":1,"point":"ford"}
     {"distance":1,"point":"fool"}
 
+
+Distance metrics
+----------------
+
 Aside from Levenshtein distance, Levenserv supports the Jaccard distance on
 the sets of trigrams extracted from a pair of strings. Start Levenserv with
 
@@ -95,6 +99,10 @@ to get this distance. Its value is always between zero and one:
     {"distance":0.2727272727272727,"point":"hell"}
     {"distance":0.35294117647058826,"point":"Othello"}
     {"distance":0.35294117647058826,"point":"hello's"}
+
+The metric `levenshtein_damerau` gives a version of Levenshtein distance
+where a transposition (swap) of two adjacent characters is counted as one
+edit operation.
 
 
 Usage from scripts, without Docker

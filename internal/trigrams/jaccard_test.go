@@ -68,7 +68,7 @@ var (
 )
 
 func readStrings() {
-	p, err := ioutil.ReadFile("testdata/strings.txt")
+	p, err := ioutil.ReadFile("../testdata/strings.txt")
 	if err != nil {
 		panic(err)
 	}
