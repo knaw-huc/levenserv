@@ -18,7 +18,7 @@ import (
 
 func main() {
 	var (
-		addr = flag.String("addr", "localhost:",
+		addrparam = flag.String("addr", "",
 			"bind to this address (default: localhost with random port)")
 		debug  = flag.Bool("debug", false, "send debugging ouput to stderr")
 		format = flag.String("format", "lines", "input format: lines or json")
@@ -86,19 +86,26 @@ func main() {
 		log.Fatal(err)
 	}
 
+	addr := *addrparam
+	if addr == "" {
+		addr = "localhost:"
+	}
+
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	srv := http.Server{
-		Addr:         *addr,
+		Addr:         addr,
 		Handler:      h,
 		ReadTimeout:  t,
 		WriteTimeout: t,
 	}
 
-	ln, err := net.Listen("tcp", *addr)
-	if err != nil {
-		log.Fatal(err)
+	if *addrparam == "" {
+		fmt.Printf("http://%s\n", ln.Addr())
 	}
-
-	fmt.Printf("http://%s\n", ln.Addr())
 	os.Stdout.Close()
 
 	log.Fatal(srv.Serve(ln))
