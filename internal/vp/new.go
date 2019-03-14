@@ -95,6 +95,9 @@ func (b *builder) build() *node {
 		return b.build3()
 	}
 
+	// Shuffle for both selectVantage and selectMedian.
+	rand.New(&b.rng).Shuffle(len(b.points), b.swap)
+
 	vantage := b.selectVantage()
 	// XXX the following loop can be done in parallel.
 	for i := range b.points {
@@ -132,55 +135,18 @@ func (b *builder) build2() *node {
 
 // Base case with three points.
 func (b *builder) build3() *node {
-	p0 := b.points[0].p
-	p1 := b.points[1].p
-	p2 := b.points[2].p
+	vantage := b.selectVantage()
 
-	d01 := b.metric(p0, p1)
-	d02 := b.metric(p0, p2)
-	d12 := b.metric(p1, p2)
-
-	best := 0
-	mean := .5 * (d01 + d02)
-	bestSpread := math.Abs(d01-mean) + math.Abs(d02-mean)
-
-	mean = .5 * (d01 + d12)
-	spread := math.Abs(d01-mean) + math.Abs(d12-mean)
-	if spread > bestSpread {
-		best, bestSpread = 1, spread
-	}
-
-	mean = .5 * (d02 + d12)
-	spread = math.Abs(d02-mean) + math.Abs(d12-mean)
-	if spread > bestSpread {
-		best = 2
-	}
-
-	// Set distances and put the best point at index 0.
-	switch best {
-	case 0:
-		b.points[1].d = d01
-		b.points[2].d = d02
-	case 1:
-		b.points[0].d = d01
-		b.points[2].d = d12
+	if b.points[0].d > b.points[1].d {
 		b.swap(0, 1)
-	case 2:
-		b.points[0].d = d02
-		b.points[1].d = d12
-		b.swap(0, 2)
-	}
-
-	if b.points[1].d > b.points[2].d {
-		b.swap(1, 2)
 	}
 
 	var nodes [3]node
 	nodes[0] = node{
-		center:  b.points[0].p,
-		radius:  b.points[1].d,
-		inside:  singleton(b.points[1].p, &nodes[1]),
-		outside: singleton(b.points[2].p, &nodes[2]),
+		center:  vantage,
+		radius:  (b.points[0].d + b.points[1].d) / 2,
+		inside:  singleton(b.points[0].p, &nodes[1]),
+		outside: singleton(b.points[1].p, &nodes[2]),
 	}
 	return &nodes[0]
 }
@@ -202,7 +168,7 @@ func (b *builder) split(i int) *builder {
 	return &b2
 }
 
-// Quickselect. Points has been shuffled (by selectVantage) before entry,
+// Quickselect. Points has been shuffled before entry,
 // so no need to bother with fancy pivoting.
 func (b *builder) selectMedian() int {
 	median := len(b.points) / 2
@@ -243,33 +209,35 @@ func (b *builder) swap(i, j int) {
 }
 
 // Selects, removes and returns a vantage point from b.points.
-// Assumes len(b.points) > 3.
+// b.points must be shuffled before entry.
 func (b *builder) selectVantage() string {
-	// The first sampleSize points are the candidates. Taking ~sqrt(N)
-	// as the sample size ensures that we make a linear number of
-	// distance comparisons.
-	n := len(b.points)
-	sampleSize := int(math.Sqrt(float64(n)))
-	rand.New(&b.rng).Shuffle(len(b.points), b.swap)
-	rest := b.points[sampleSize:]
+	// For small numbers of points, compute the exact best vantage point.
+	sample := b.points
+	if len(b.points) >= 6 {
+		// Otherwise, take a sample of O(√n) points and select the best point
+		// in the sample as the vantage point.
+		// The square root makes the loop below run in linear time.
+		size := int(math.Sqrt(float64(len(b.points))))
+		sample = sample[:size]
+	}
 
 	best := -1
 	bestSpread := math.Inf(-1)
 
-	sampleSize = int(math.Sqrt(float64(len(rest))))
+	for i := range sample {
+		b.swap(0, i)
+		candidate := sample[0].p
 
-	for i := 0; i < sampleSize; i++ {
-		candidate := b.points[i].p
-
-		start, end := i*sampleSize, (i+1)*sampleSize
-		for j := start; j < end; j++ {
-			b.points[j].d = b.metric(candidate, rest[j].p)
+		rest := sample[1:]
+		for j := range rest {
+			rest[j].d = b.metric(candidate, rest[j].p)
 		}
-		mean := average(b.points[start:end])
-		spread := mad(b.points[start:end], mean)
+		mean := average(rest)
+		spread := meanabsdev(rest, mean)
 		if spread > bestSpread {
 			best, bestSpread = i, spread
 		}
+		b.swap(0, i)
 	}
 
 	b.swap(best, 0)
@@ -299,7 +267,7 @@ func sum(a []pointDist) float64 {
 }
 
 // Mean absolute deviation of a[...].d given its mean.
-func mad(a []pointDist, mean float64) float64 {
+func meanabsdev(a []pointDist, mean float64) float64 {
 	return sumabsdev(a, mean) / float64(len(a))
 }
 
