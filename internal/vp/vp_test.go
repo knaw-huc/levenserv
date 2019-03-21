@@ -28,7 +28,7 @@ func TestLevenshtein(t *testing.T) {
 
 	for _, seed := range seeds {
 		m, count := countingLevenshtein()
-		tree, _ := vp.NewFromSeed(nil, m, sendWords(-1), seed)
+		tree, _ := vp.NewFromSeed(nil, m, words, seed)
 
 		if n := tree.Len(); n != len(words) {
 			t.Fatalf("%d strings given, %d in tree", len(words), n)
@@ -79,7 +79,7 @@ func TestLevenshteinSmall(t *testing.T) {
 		return float64(levenshtein.DistanceCodepoints(a, b))
 	}
 	for i := 0; i < 6; i++ {
-		vp.New(nil, m, sendWords(i))
+		vp.New(nil, m, words[:i])
 	}
 }
 
@@ -87,7 +87,7 @@ func TestDo(t *testing.T) {
 	m := func(a, b string) float64 {
 		return float64(levenshtein.DistanceCodepoints(a, b))
 	}
-	tree, _ := vp.New(nil, m, sendWords(-1))
+	tree, _ := vp.New(nil, m, words)
 
 	mapw := make(map[string]struct{})
 	for _, s := range words {
@@ -115,7 +115,7 @@ func BenchmarkNew(b *testing.B) {
 
 	b.Logf("%d strings", len(words))
 	for i := 0; i < b.N; i++ {
-		vp.NewFromSeed(nil, m, sendWords(-1), int64(i))
+		vp.NewFromSeed(nil, m, words, int64(i))
 	}
 }
 
@@ -123,7 +123,7 @@ func Benchmark5NN(b *testing.B) {
 	m := func(a, b string) float64 {
 		return float64(levenshtein.DistanceBytes(a, b))
 	}
-	t, _ := vp.NewFromSeed(nil, m, sendWords(-1), 42)
+	t, _ := vp.NewFromSeed(nil, m, words, 42)
 
 	ctx := context.Background()
 
@@ -150,22 +150,6 @@ var (
 	}
 	words []string
 )
-
-func sendWords(n int) <-chan string {
-	send := words
-	if n >= 0 {
-		send = words[:n]
-	}
-
-	ch := make(chan string)
-	go func() {
-		defer close(ch)
-		for _, s := range send {
-			ch <- s
-		}
-	}()
-	return ch
-}
 
 func init() {
 	for _, s1 := range queryWords {

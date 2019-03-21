@@ -19,15 +19,7 @@ func makeHandler(metric string) http.Handler {
 		timeout:    2 * time.Second,
 	}
 
-	ch := make(chan string)
-	go func() {
-		defer close(ch)
-		for _, s := range []string{"foo", "bar", "baz", "quux"} {
-			ch <- s
-		}
-	}()
-
-	h, err := idx.init(ch)
+	h, err := idx.init([]string{"foo", "bar", "baz", "quux"})
 	if err != nil {
 		panic(err)
 	}

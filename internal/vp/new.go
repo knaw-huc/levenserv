@@ -10,38 +10,25 @@ import (
 	"github.com/knaw-huc/levenserv/internal/tinyrng"
 )
 
-// New constructs a Tree from points sent over the channel,
-// using the metric m.
+// New constructs a Tree from the points, using the metric m.
 //
-// The channel points is always drained. Construction may be stopped by
-// canceling ctx and closing points, in which case ctx.Err() is returned.
+// Construction may be stopped by canceling ctx,
+// in which case ctx.Err() is returned.
 // Otherwise, err will be nil. If ctx is nil, context.Background() is used.
-func New(ctx context.Context, m Metric, points <-chan string) (t *Tree, err error) {
+func New(ctx context.Context, m Metric, points []string) (t *Tree, err error) {
 	return NewFromSeed(ctx, m, points, rand.Int63())
 }
 
 // NewFrom is like New, but with an explicit random seed.
-func NewFromSeed(ctx context.Context, m Metric, points <-chan string, seed int64) (t *Tree, err error) {
+func NewFromSeed(ctx context.Context, m Metric, points []string, seed int64) (t *Tree, err error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	done := ctx.Done()
 
 	var pointsDists []pointDist
-loop:
-	for {
-		select {
-		case p, ok := <-points:
-			if !ok {
-				break loop
-			}
-			pointsDists = append(pointsDists, pointDist{p: p})
-		case <-done:
-			// drain the channel as promised
-			for range points {
-			}
-			return nil, ctx.Err()
-		}
+	for _, p := range points {
+		pointsDists = append(pointsDists, pointDist{p: p})
 	}
 
 	b := builder{

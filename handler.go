@@ -28,7 +28,7 @@ type nnIndex struct {
 	*vp.Tree
 }
 
-func (i *nnIndex) init(strs <-chan string) (h http.Handler, err error) {
+func (i *nnIndex) init(strs []string) (h http.Handler, err error) {
 	i.metric, err = metricByName(i.metricName)
 	if err != nil {
 		return

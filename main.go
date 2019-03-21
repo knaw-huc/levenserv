@@ -41,6 +41,7 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
+			defer input.Close()
 		}
 	default:
 		flag.Usage()
@@ -64,14 +65,16 @@ func main() {
 	if *debug {
 		log.Printf("reading strings from %s", input.Name())
 	}
-	strs := make(chan string, 1)
-	go func() {
-		defer close(strs)
-		defer input.Close()
-		readStrings(input, strs)
-	}()
+	strs, err := readStrings(input)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	strs = mapFn(strs, normalize)
+	if normalize != nil {
+		for i := range strs {
+			strs[i] = normalize(strs[i])
+		}
+	}
 
 	t := time.Duration(*timeout) * time.Second
 	idx := nnIndex{
@@ -129,40 +132,23 @@ func normalForm(name string) (nf func(string) string, err error) {
 	return
 }
 
-func mapFn(ch chan string, fn func(string) string) chan string {
-	if fn == nil {
-		return ch
-	}
-
-	out := make(chan string, 1)
-	go func() {
-		defer close(out)
-		for s := range ch {
-			out <- fn(s)
-		}
-	}()
-
-	return out
-}
-
-func readLines(r io.Reader, strs chan<- string) {
+func readLines(r io.Reader) (strs []string, err error) {
 	sc := bufio.NewScanner(r)
 	for sc.Scan() {
-		strs <- sc.Text()
+		strs = append(strs, sc.Text())
 	}
-	if err := sc.Err(); err != nil {
-		log.Fatal(err)
-	}
+	return strs, sc.Err()
 }
 
-func readJSON(r io.Reader, strs chan<- string) {
+func readJSON(r io.Reader) (strs []string, err error) {
 	dec := json.NewDecoder(os.Stdin)
 	for dec.More() {
 		var s string
-		err := dec.Decode(&s)
+		err = dec.Decode(&s)
 		if err != nil {
-			log.Fatal(err)
+			break
 		}
-		strs <- s
+		strs = append(strs, s)
 	}
+	return
 }
