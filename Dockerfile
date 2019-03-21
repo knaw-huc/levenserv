@@ -3,7 +3,10 @@ FROM golang:1.12-alpine as build
 # Git is needed by go get.
 RUN apk add --no-cache git
 
-RUN go get -v -d github.com/julienschmidt/httprouter golang.org/x/text
+RUN go get -v -d \
+    github.com/julienschmidt/httprouter \
+    github.com/stretchr/testify \
+    golang.org/x/text
 
 WORKDIR /go/src/github.com/knaw-huc/levenserv
 COPY . .

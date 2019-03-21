@@ -3,12 +3,15 @@ package vp_test
 import (
 	"context"
 	"math"
+	"math/rand"
 	"reflect"
+	"sort"
 	"sync/atomic"
 	"testing"
 
 	"github.com/knaw-huc/levenserv/internal/levenshtein"
 	"github.com/knaw-huc/levenserv/internal/vp"
+	"github.com/stretchr/testify/assert"
 )
 
 func countingLevenshtein() (vp.Metric, *uint64) {
@@ -30,13 +33,8 @@ func TestLevenshtein(t *testing.T) {
 		m, count := countingLevenshtein()
 		tree, _ := vp.NewFromSeed(nil, m, words, seed)
 
-		if n := tree.Len(); n != len(words) {
-			t.Fatalf("%d strings given, %d in tree", len(words), n)
-		}
-
-		nearest, _ := tree.Search(nil, "[]string", 1, math.Inf(+1), nil)
-		if nearest[0].Point != "[]string" {
-			t.Fatalf("nearest should be []string, not %q", nearest[0].Point)
+		if !assert.Equal(t, len(words), tree.Len()) {
+			return
 		}
 
 		*count = 0
@@ -44,19 +42,13 @@ func TestLevenshtein(t *testing.T) {
 		const k = 10
 		for _, q := range queryWords {
 			nn, _ := tree.Search(nil, q, k, math.Inf(+1), nil)
-			if len(nn) != k {
-				t.Fatalf("%d results for %d-NN query", len(nn), k)
+			if !assert.Equal(t, k, len(nn)) ||
+				!assert.Equal(t, q, nn[0].Point) ||
+				!assert.Zero(t, nn[0].Dist) {
+				return
 			}
-			if p := nn[0].Point; p != q {
-				t.Fatalf("nearest should be %q, got %q", q, p)
-			}
-			if d := nn[0].Dist; d != 0 {
-				t.Fatalf("nearest should be at distance 0, got %f", d)
-			}
-			for _, n := range nn {
-				if d := m(n.Point, q); n.Dist != d {
-					t.Fatalf("got distance %f, expected %f", n.Dist, d)
-				}
+			for _, r := range nn {
+				assert.Equal(t, m(r.Point, q), r.Dist)
 			}
 		}
 		totalCalls += *count
@@ -68,10 +60,7 @@ func TestLevenshtein(t *testing.T) {
 
 	bruteForce := (float64(len(words)) * float64(len(queryWords)) *
 		float64(len(seeds)))
-	if max := uint64(fraction * bruteForce); totalCalls > max {
-		t.Errorf("expected at most %d distance computations, got %d",
-			max, totalCalls)
-	}
+	assert.Less(t, totalCalls, uint64(fraction*bruteForce))
 }
 
 func TestLevenshteinSmall(t *testing.T) {
@@ -105,6 +94,39 @@ func TestDo(t *testing.T) {
 		t.Fatalf("%d strings Done, but %d given", len(mapt), len(mapw))
 	case !reflect.DeepEqual(mapw, mapt):
 		t.Fatal("set of strings from Do != set of string given")
+	}
+}
+
+func TestSearch(t *testing.T) {
+	for i := 2; i < 8; i++ {
+		offset := rand.Intn(len(words) - i)
+		testSearch(t, words[offset:offset+i])
+	}
+}
+
+func testSearch(t *testing.T, words []string) {
+	nn := make(map[string][]vp.Result)
+
+	for _, q := range words {
+		for _, w := range words {
+			nn[q] = append(nn[q], vp.Result{Point: w, Dist: lenDist(w, q)})
+		}
+
+		sort.Slice(nn[q], func(i, j int) bool {
+			x, y := &nn[q][i], &nn[q][j]
+			return x.Dist < y.Dist || x.Dist == y.Dist && x.Point < y.Point
+		})
+	}
+
+	tree, _ := vp.New(nil, lenDist, words)
+	for _, q := range words {
+		n, _ := tree.Search(nil, q, len(words), math.Inf(+1), nil)
+		sort.Slice(n, func(i, j int) bool {
+			x, y := &n[i], &n[j]
+			return x.Dist < y.Dist || x.Dist == y.Dist && x.Point < y.Point
+		})
+
+		assert.Equal(t, nn[q], n)
 	}
 }
 
@@ -164,3 +186,7 @@ func init() {
 		words = append(words, s)
 	}
 }
+
+// The absolute difference in length of two strings is a trivial metric
+// that can be used to test and benchmark Search.
+func lenDist(a, b string) float64 { return math.Abs(float64(len(a) - len(b))) }
