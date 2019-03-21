@@ -141,18 +141,30 @@ func BenchmarkNew(b *testing.B) {
 	}
 }
 
-func Benchmark5NN(b *testing.B) {
+func BenchmarkSearch(b *testing.B) {
 	m := func(a, b string) float64 {
 		return float64(levenshtein.DistanceBytes(a, b))
 	}
 	t, _ := vp.NewFromSeed(nil, m, words, 42)
 
-	ctx := context.Background()
+	b.Run("Levenshtein-1NN", func(b *testing.B) { benchmarkSearch(b, t, 1) })
+	b.Run("Levenshtein-5NN", func(b *testing.B) { benchmarkSearch(b, t, 5) })
+	b.Run("Levenshtein-10NN", func(b *testing.B) { benchmarkSearch(b, t, 10) })
+	b.Run("Levenshtein-20NN", func(b *testing.B) { benchmarkSearch(b, t, 20) })
 
-	b.ResetTimer()
+	t, _ = vp.NewFromSeed(nil, lenDist, words, 42)
+
+	b.Run("Trivial-1NN", func(b *testing.B) { benchmarkSearch(b, t, 1) })
+	b.Run("Trivial-5NN", func(b *testing.B) { benchmarkSearch(b, t, 5) })
+	b.Run("Trivial-10NN", func(b *testing.B) { benchmarkSearch(b, t, 10) })
+	b.Run("Trivial-20NN", func(b *testing.B) { benchmarkSearch(b, t, 20) })
+}
+
+func benchmarkSearch(b *testing.B, t *vp.Tree, k int) {
+	ctx := context.Background()
 	for i := 0; i < b.N; i++ {
 		for _, w := range queryWords {
-			t.Search(ctx, w, 5, math.Inf(+1), nil)
+			t.Search(ctx, w, k, math.Inf(+1), nil)
 		}
 	}
 }

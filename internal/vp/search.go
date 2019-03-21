@@ -38,7 +38,7 @@ func (t *Tree) Search(ctx context.Context, p string, k int, maxDist float64, pre
 		query:  p,
 		pred:   pred,
 		radius: maxDist,
-		result: make([]Result, 0, k+1),
+		result: make([]Result, 0, k),
 		t:      t,
 	}
 	s.search(t.root)
@@ -73,12 +73,12 @@ func (s *searcher) search(n *node) {
 
 	d := s.t.metric(s.query, n.center)
 	if d <= s.radius && s.pred(n.center) {
-		heap.Push(&s.result, Result{Point: n.center, Dist: d})
-		if len(s.result) > s.k {
-			heap.Pop(&s.result)
-		}
-		if len(s.result) == s.k {
-			s.radius = s.result[0].Dist
+		if len(s.result) < s.k {
+			heap.Push(&s.result, Result{Point: n.center, Dist: d})
+		} else if d < s.result[0].Dist {
+			s.result[0] = Result{Point: n.center, Dist: d}
+			heap.Fix(&s.result, 0)
+			s.radius = d
 		}
 	}
 
@@ -98,16 +98,11 @@ func (s *searcher) search(n *node) {
 // Default predicate for searchers.
 func all(string) bool { return true }
 
-// Sorts results by inverse of distance.
+// byDistance sorts Results in descending order of Dist.
 type byDistance []Result
 
-func (r byDistance) Len() int           { return len(r) }
-func (r byDistance) Less(i, j int) bool { return r[i].Dist > r[j].Dist }
-func (r *byDistance) Pop() interface{} {
-	n := len(*r) - 1
-	x := (*r)[n]
-	*r = (*r)[:n]
-	return x
-}
+func (r byDistance) Len() int            { return len(r) }
+func (r byDistance) Less(i, j int) bool  { return r[i].Dist > r[j].Dist }
+func (r *byDistance) Pop() interface{}   { panic("use heap.Fix, not heap.Pop") }
 func (r *byDistance) Push(x interface{}) { *r = append(*r, x.(Result)) }
 func (r byDistance) Swap(i, j int)       { r[i], r[j] = r[j], r[i] }
