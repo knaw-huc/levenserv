@@ -51,7 +51,7 @@ distance.
 
 The return value is a list of strings and distances:
 
-    $ curl -s http://localhost:8080/knn -d '{"query": "foods", "k": 5}' |
+    $ curl -s http://localhost:8080/knn -d '{"query": "foods", "k": 15}' |
         jq -c '.[]'
     {"distance":0,"point":"foods"}
     {"distance":1,"point":"floods"}
