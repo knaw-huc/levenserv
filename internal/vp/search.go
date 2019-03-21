@@ -34,7 +34,6 @@ func (t *Tree) Search(ctx context.Context, p string, k int, maxDist float64, pre
 	}
 	s := searcher{
 		ctx:    ctx,
-		k:      k,
 		query:  p,
 		pred:   pred,
 		radius: maxDist,
@@ -52,11 +51,10 @@ func (t *Tree) Search(ctx context.Context, p string, k int, maxDist float64, pre
 type searcher struct {
 	ctx    context.Context
 	err    error
-	k      int
 	pred   Predicate
 	query  string
 	radius float64
-	result byDistance
+	result byDistance // cap(result) is the number of neighbors wanted.
 	t      *Tree
 }
 
@@ -73,8 +71,9 @@ func (s *searcher) search(n *node) {
 
 	d := s.t.metric(s.query, n.center)
 	if d <= s.radius && s.pred(n.center) {
-		if len(s.result) < s.k {
-			heap.Push(&s.result, Result{Point: n.center, Dist: d})
+		if len(s.result) < cap(s.result) {
+			s.result = append(s.result, Result{Point: n.center, Dist: d})
+			heap.Fix(&s.result, len(s.result)-1)
 		} else if d < s.result[0].Dist {
 			s.result[0] = Result{Point: n.center, Dist: d}
 			heap.Fix(&s.result, 0)
@@ -104,5 +103,5 @@ type byDistance []Result
 func (r byDistance) Len() int            { return len(r) }
 func (r byDistance) Less(i, j int) bool  { return r[i].Dist > r[j].Dist }
 func (r *byDistance) Pop() interface{}   { panic("use heap.Fix, not heap.Pop") }
-func (r *byDistance) Push(x interface{}) { *r = append(*r, x.(Result)) }
+func (r *byDistance) Push(x interface{}) { panic("use heap.Fix, not heap.Push") }
 func (r byDistance) Swap(i, j int)       { r[i], r[j] = r[j], r[i] }
