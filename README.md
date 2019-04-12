@@ -12,9 +12,8 @@ To start using Levenserv, make sure you have a collection of strings ready.
 Most Linux systems have a mildly interesting one in ``/usr/share/dict/words``.
 Build and run Levenserv with Docker:
 
-    container=$(docker build -q .)
-    words=/usr/share/dict/words
-    docker run -i -p 8080:8080 $container -debug < $words
+    docker build -t levenserv .
+    docker run -i -p 8080:8080 levenserv -debug < /usr/share/dict/words
 
 You now have a REST API serving port 8080 that you can query for words that
 look like other words. To get the three words most similar to "foobar", do:
@@ -109,4 +108,4 @@ Usage from scripts, without Docker
 ----------------------------------
 
 See example.sh for a shell script that starts and stops Levenserv, without
-using Docker. You need to go install the package first for this to work.
+using Docker. You need to ``go install`` the package first for this to work.
