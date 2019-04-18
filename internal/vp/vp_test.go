@@ -128,6 +128,20 @@ func testSearch(t *testing.T, words []string) {
 
 		assert.Equal(t, nn[q], n)
 	}
+
+	for _, k := range []int{1, 4, 14, 33} {
+		if k > len(words) {
+			break
+		}
+
+		for _, q := range words {
+			n, _ := tree.Search(nil, q, k, math.Inf(+1), nil)
+			for i := 0; i < k; i++ {
+				assert.Equal(t, nn[q][i].Dist, n[i].Dist,
+					"%d-nn search for %q", k, q)
+			}
+		}
+	}
 }
 
 func BenchmarkNew(b *testing.B) {
